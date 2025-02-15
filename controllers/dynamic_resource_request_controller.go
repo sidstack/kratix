@@ -138,7 +138,7 @@ func (r *DynamicResourceRequestController) Reconcile(ctx context.Context, req ct
         logger.Info("Trigger delete workflows label detected", "resource", rr.GetName())
     }
 
-if !rr.GetDeletionTimestamp().IsZero() || triggerDelete {
+    if !rr.GetDeletionTimestamp().IsZero() || triggerDelete {
 		return r.deleteResources(opts, promise, rr, resourceRequestIdentifier)
 	}
 
