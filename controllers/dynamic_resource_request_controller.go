@@ -196,53 +196,53 @@ func (r *DynamicResourceRequestController) Reconcile(ctx context.Context, req ct
 
 
 func (r *DynamicResourceRequestController) deleteResources(o opts, promise *v1alpha1.Promise, resourceRequest *unstructured.Unstructured, resourceRequestIdentifier string) (ctrl.Result, error) {
-    if resourceutil.FinalizersAreDeleted(resourceRequest, rrFinalizers) {
-        return ctrl.Result{}, nil
-    }
-
-    if controllerutil.ContainsFinalizer(resourceRequest, runDeleteWorkflowsFinalizer) {
-        pipelineResources, err := promise.GenerateResourcePipelines(v1alpha1.WorkflowActionDelete, resourceRequest, o.logger)
-        if err != nil {
-            return ctrl.Result{}, err
+        if resourceutil.FinalizersAreDeleted(resourceRequest, rrFinalizers) {
+            return ctrl.Result{}, nil
         }
 
-        jobOpts := workflow.NewOpts(o.ctx, o.client, r.EventRecorder, o.logger, resourceRequest, pipelineResources, "resource", r.NumberOfJobsToKeep)
-        requeue, err := reconcileDelete(jobOpts)
-        if err != nil {
-            if errors.Is(err, workflow.ErrDeletePipelineFailed) {
-                r.EventRecorder.Event(resourceRequest, "Warning", "Failed Pipeline", "The Delete Pipeline has failed")
-                resourceutil.MarkDeleteWorkflowAsFailed(o.logger, resourceRequest)
-                if err := r.Client.Status().Update(o.ctx, resourceRequest); err != nil {
-                    o.logger.Error(err, "Failed to update resource request status", "promise", promise.GetName(),
-                        "namespace", resourceRequest.GetNamespace(), "resource", resourceRequest.GetName())
-                }
+        if controllerutil.ContainsFinalizer(resourceRequest, runDeleteWorkflowsFinalizer) {
+            pipelineResources, err := promise.GenerateResourcePipelines(v1alpha1.WorkflowActionDelete, resourceRequest, o.logger)
+            if err != nil {
+                return ctrl.Result{}, err
             }
-            return ctrl.Result{}, err
-        }
-        if requeue {
-            return defaultRequeue, nil
+
+            jobOpts := workflow.NewOpts(o.ctx, o.client, r.EventRecorder, o.logger, resourceRequest, pipelineResources, "resource", r.NumberOfJobsToKeep)
+            requeue, err := reconcileDelete(jobOpts)
+            if err != nil {
+                if errors.Is(err, workflow.ErrDeletePipelineFailed) {
+                    r.EventRecorder.Event(resourceRequest, "Warning", "Failed Pipeline", "The Delete Pipeline has failed")
+                    resourceutil.MarkDeleteWorkflowAsFailed(o.logger, resourceRequest)
+                    if err := r.Client.Status().Update(o.ctx, resourceRequest); err != nil {
+                        o.logger.Error(err, "Failed to update resource request status", "promise", promise.GetName(),
+                            "namespace", resourceRequest.GetNamespace(), "resource", resourceRequest.GetName())
+                    }
+                }
+                return ctrl.Result{}, err
+            }
+            if requeue {
+                return defaultRequeue, nil
+            }
+
+            controllerutil.RemoveFinalizer(resourceRequest, runDeleteWorkflowsFinalizer)
         }
 
-        controllerutil.RemoveFinalizer(resourceRequest, runDeleteWorkflowsFinalizer)
-    }
-
-    if controllerutil.ContainsFinalizer(resourceRequest, workFinalizer) {
-        err := r.deleteWork(o, resourceRequest, resourceRequestIdentifier, workFinalizer)
-        if err != nil {
-            return ctrl.Result{}, err
+        if controllerutil.ContainsFinalizer(resourceRequest, workFinalizer) {
+            err := r.deleteWork(o, resourceRequest, resourceRequestIdentifier, workFinalizer)
+            if err != nil {
+                return ctrl.Result{}, err
+            }
+            return fastRequeue, nil
         }
+
+        if controllerutil.ContainsFinalizer(resourceRequest, removeAllWorkflowJobsFinalizer) {
+            err := r.deleteWorkflows(o, resourceRequest, removeAllWorkflowJobsFinalizer)
+            if err != nil {
+                return ctrl.Result{}, err
+            }
+            return fastRequeue, nil
+        }
+
         return fastRequeue, nil
-    }
-
-    if controllerutil.ContainsFinalizer(resourceRequest, removeAllWorkflowJobsFinalizer) {
-        err := r.deleteWorkflows(o, resourceRequest, removeAllWorkflowJobsFinalizer)
-        if err != nil {
-            return ctrl.Result{}, err
-        }
-        return fastRequeue, nil
-    }
-
-    return fastRequeue, nil
 }
 
 
