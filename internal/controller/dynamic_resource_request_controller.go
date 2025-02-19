@@ -201,12 +201,11 @@ func (r *DynamicResourceRequestController) deleteResources(o opts, promise *v1al
 	}
 
 	if controllerutil.ContainsFinalizer(resourceRequest, runDeleteWorkflowsFinalizer) {
-        resourceutil.SetStatus(resourceRequest, o.logger, "message", "Delete Workflows Triggered")
-        if err := o.client.Status().Update(o.ctx, resourceRequest); err != nil {
-            o.logger.Error(err, "Failed to update resource status before delete workflows")
-            return ctrl.Result{}, err
-        }
-        o.logger.Info("Updated resource status to 'Delete Workflows Triggered'", "resource", resourceRequest.GetName())
+    if err := o.client.Status().Update(o.ctx, resourceRequest); err != nil {
+        o.logger.Error(err, "Failed to update resource status before delete workflows")
+        return ctrl.Result{}, err
+    }
+    o.logger.Info("Updated resource status to 'Delete Workflows Triggered'", "resource", resourceRequest.GetName())
 
 		pipelineResources, err := promise.GenerateResourcePipelines(v1alpha1.WorkflowActionDelete, resourceRequest, o.logger)
 		if err != nil {

@@ -238,6 +238,7 @@ var _ = Describe("DynamicResourceRequestController", func() {
         })
     })
 
+
 	When("resource is being deleted", func() {
 		BeforeEach(func() {
 			setReconcileConfigureWorkflowToReturnFinished()
